@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import string
 from itertools import chain
 from typing import Callable
@@ -320,8 +321,8 @@ class GoldenRewardModel:
         return scores.to(input_ids.device)
 
 
-def round_up(x: int, multiple_of: int) -> int:
-    return (x + multiple_of - 1) // multiple_of * multiple_of
+def round_up(x: float, multiple_of: int) -> int:
+    return (math.ceil(x) + multiple_of - 1) // multiple_of * multiple_of
 
 
 def main():
@@ -372,7 +373,7 @@ def main():
     policy_config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
         hidden_size=args.policy_hidden_size,
-        intermediate_size=round_up(args.policy_hidden_size, multiple_of=8),
+        intermediate_size=round_up(args.policy_hidden_size * 8 / 3, multiple_of=8),
         num_hidden_layers=args.policy_num_hidden_layers,
         num_attention_heads=args.policy_num_attention_heads,
     )
@@ -381,7 +382,7 @@ def main():
     value_config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
         hidden_size=args.value_hidden_size,
-        intermediate_size=round_up(args.value_hidden_size, multiple_of=8),
+        intermediate_size=round_up(args.value_hidden_size * 8 / 3, multiple_of=8),
         num_hidden_layers=args.value_num_hidden_layers,
         num_attention_heads=args.value_num_attention_heads,
     )
