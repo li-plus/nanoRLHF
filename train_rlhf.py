@@ -303,22 +303,18 @@ class GoldenRewardModel:
         self.tokenizer = tokenizer
 
     def __call__(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> torch.Tensor:
-        texts = self.tokenizer.batch_decode(input_ids)
-        prompt_length = texts[0].index("E") + 1
+        input_ids = input_ids.cpu()
+        prompt_length = input_ids[0].tolist().index(self.tokenizer.eos_token_id) + 1
 
         scores = torch.zeros(input_ids.shape, dtype=torch.float32)
-        for input_id, score in zip(input_ids, scores):
-            prompt_id = input_id[:prompt_length]
+        for prompt_id, response_id, score in zip(input_ids[:, :prompt_length], input_ids[:, prompt_length:], scores):
             target_id = prompt_id[prompt_id != self.tokenizer.pad_token_id]
-            response_id = input_id[prompt_length:]
             for j, (rsp_id, tgt_id) in enumerate(zip(response_id, target_id)):
                 if rsp_id != tgt_id:
                     break
                 score[prompt_length + j] = 1
-                if tgt_id == self.tokenizer.eos_token_id:
-                    break
 
-        return scores.to(input_ids.device)
+        return scores.to(attention_mask.device)
 
 
 def round_up(x: float, multiple_of: int) -> int:
@@ -468,7 +464,7 @@ def main():
                 top_p=args.top_p,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
-            )
+            ).cpu()
             prompt_texts = tokenizer.batch_decode(output_ids[:, args.max_prompt_length :], skip_special_tokens=True)
             output_texts = tokenizer.batch_decode(output_ids[:, args.max_prompt_length :], skip_special_tokens=True)
 
