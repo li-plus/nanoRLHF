@@ -64,14 +64,14 @@ class PromptDataset(Dataset):
 
 
 class ExperienceDataset(Dataset):
-    def __init__(self, experiences: dict[str, torch.Tensor]) -> None:
-        self.experiences = experiences
+    def __init__(self, experience: dict[str, torch.Tensor]) -> None:
+        self.experience = experience
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
-        return {k: v[index] for k, v in self.experiences.items()}
+        return {k: v[index] for k, v in self.experience.items()}
 
     def __len__(self) -> int:
-        return len(next(iter(self.experiences.values())))
+        return len(next(iter(self.experience.values())))
 
 
 class ValueModel(nn.Module):
@@ -303,18 +303,21 @@ class GoldenRewardModel:
         self.tokenizer = tokenizer
 
     def __call__(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> torch.Tensor:
-        input_ids = input_ids.cpu()
-        prompt_length = input_ids[0].tolist().index(self.tokenizer.eos_token_id) + 1
+        batch_size, seq_len = input_ids.shape
+        input_ids_list = input_ids.tolist()
+        prompt_length = input_ids_list[0].index(self.tokenizer.eos_token_id) + 1
 
-        scores = torch.zeros(input_ids.shape, dtype=torch.float32)
-        for prompt_id, response_id, score in zip(input_ids[:, :prompt_length], input_ids[:, prompt_length:], scores):
-            target_id = prompt_id[prompt_id != self.tokenizer.pad_token_id]
+        scores = [[0 for _ in range(seq_len)] for _ in range(batch_size)]
+        for input_id, score in zip(input_ids_list, scores):
+            prompt_id = input_id[:prompt_length]
+            target_id = [x for x in prompt_id if x != self.tokenizer.pad_token_id]
+            response_id = input_id[prompt_length:]
             for j, (rsp_id, tgt_id) in enumerate(zip(response_id, target_id)):
                 if rsp_id != tgt_id:
                     break
                 score[prompt_length + j] = 1
 
-        return scores.to(attention_mask.device)
+        return torch.tensor(scores, dtype=torch.float32, device=input_ids.device)
 
 
 def round_up(x: float, multiple_of: int) -> int:
