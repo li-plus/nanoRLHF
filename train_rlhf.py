@@ -20,6 +20,7 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
     get_scheduler,
+    set_seed,
 )
 
 
@@ -339,6 +340,7 @@ def main():
     parser.add_argument("--temp", default=0.7, type=float)
     parser.add_argument("--top_p", default=1.0, type=float)
     # training config
+    parser.add_argument("--seed", default=123, type=int)
     parser.add_argument("--output_dir", default="llama_rl", type=str)
     parser.add_argument("--lr", default=1e-4, type=float)
     parser.add_argument("--lr_scheduler_type", default="cosine", type=str)
@@ -359,6 +361,8 @@ def main():
     args = parser.parse_args()
 
     wandb.init(project="nanoRLHF", config=args)
+
+    set_seed(args.seed)
 
     tokenizer = ByteTokenizer(padding_side="left")
 
