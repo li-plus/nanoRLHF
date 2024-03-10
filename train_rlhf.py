@@ -472,7 +472,7 @@ def main():
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
             ).cpu()
-            prompt_texts = tokenizer.batch_decode(output_ids[:, args.max_prompt_length :], skip_special_tokens=True)
+            prompt_texts = tokenizer.batch_decode(output_ids[:, : args.max_prompt_length], skip_special_tokens=True)
             output_texts = tokenizer.batch_decode(output_ids[:, args.max_prompt_length :], skip_special_tokens=True)
 
             batch_correct = sum(p == o for p, o in zip(prompt_texts, output_texts))
