@@ -22,7 +22,7 @@ Start training on the word list:
 python3 train_rlhf.py
 ```
 
-If the training goes well, the final validation accuracy should reach 100%.
+If the training goes well, the final validation accuracy should reach 99%.
 
 Start the interactive demo to load the checkpoint and chat with it.
 ```
