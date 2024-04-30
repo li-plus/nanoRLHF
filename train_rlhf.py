@@ -200,12 +200,11 @@ class PPOTrainer:
         rewards = self.reward_model(input_ids=input_ids, attention_mask=attention_mask)
         values = self.value_model(input_ids=input_ids, attention_mask=attention_mask)
 
-        old_logprobs = logprobs_from_logits(old_logits[:, :-1, :], input_ids[:, 1:])
+        old_logprobs = logprobs_from_logits(old_logits[:, prompt_length - 1 : -1], input_ids[:, prompt_length:])
 
         mask = attention_mask[:, prompt_length:]
         rewards = rewards[:, prompt_length:]
         values = values[:, prompt_length - 1 : -1]
-        old_logprobs = old_logprobs[:, prompt_length - 1 :]
 
         values, advantages, returns = self.compute_advantages(values, rewards, mask)
 
@@ -237,8 +236,7 @@ class PPOTrainer:
         mask = attention_mask[:, prompt_length:]
 
         logits = self.policy_model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False).logits
-        logprobs = logprobs_from_logits(logits[:, :-1, :], input_ids[:, 1:])
-        logprobs = logprobs[:, prompt_length - 1 :]
+        logprobs = logprobs_from_logits(logits[:, prompt_length - 1 : -1], input_ids[:, prompt_length:])
 
         entropy = masked_mean(entropy_from_logits(logits[:, prompt_length - 1 : -1]), mask)
         approxkl = 0.5 * masked_mean((logprobs - old_logprobs) ** 2, mask)
@@ -466,9 +464,7 @@ def main():
                 attention_mask=batch["attention_mask"],
                 max_length=args.max_length,
                 use_cache=True,
-                do_sample=args.temp > 0,
-                temperature=args.temp,
-                top_p=args.top_p,
+                do_sample=False,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
             ).cpu()

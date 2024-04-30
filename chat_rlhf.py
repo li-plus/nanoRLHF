@@ -45,9 +45,7 @@ def main():
             attention_mask=attention_mask,
             max_length=args.max_length,
             use_cache=True,
-            do_sample=args.temp > 0,
-            temperature=args.temp,
-            top_p=args.top_p,
+            do_sample=False,
             eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,
         )
