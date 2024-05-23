@@ -183,7 +183,7 @@ class PPOTrainer:
 
         _, prompt_length = prompt_ids.shape
 
-        input_ids = self.policy_model.generate(
+        outputs = self.policy_model.generate(
             input_ids=prompt_ids,
             attention_mask=prompt_mask,
             max_length=self.config.max_length,
@@ -193,14 +193,17 @@ class PPOTrainer:
             top_p=self.config.top_p,
             eos_token_id=[self.tokenizer.eos_token_id, self.tokenizer.pad_token_id],
             pad_token_id=self.tokenizer.pad_token_id,
+            return_dict_in_generate=True,
+            output_logits=True,
         )
 
+        input_ids = outputs.sequences
         attention_mask = (input_ids != self.tokenizer.pad_token_id).long()
-        old_logits = self.policy_model(input_ids, attention_mask=attention_mask).logits
+        old_logits = torch.stack(outputs.logits, dim=1)
         rewards = self.reward_model(input_ids=input_ids, attention_mask=attention_mask)
         values = self.value_model(input_ids=input_ids, attention_mask=attention_mask)
 
-        old_logprobs = logprobs_from_logits(old_logits[:, prompt_length - 1 : -1], input_ids[:, prompt_length:])
+        old_logprobs = logprobs_from_logits(old_logits, input_ids[:, prompt_length:])
 
         mask = attention_mask[:, prompt_length:]
         rewards = rewards[:, prompt_length:]
