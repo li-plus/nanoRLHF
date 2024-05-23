@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from transformers import (
     AutoModel,
     AutoModelForCausalLM,
+    GenerationConfig,
     LlamaConfig,
     PreTrainedModel,
     PreTrainedTokenizer,
@@ -188,18 +189,18 @@ class PPOTrainer:
             attention_mask=prompt_mask,
             max_length=self.config.max_length,
             use_cache=True,
-            do_sample=self.config.temp > 0,
-            temperature=self.config.temp,
+            do_sample=self.config.temperature > 0,
+            temperature=self.config.temperature,
             top_p=self.config.top_p,
             eos_token_id=[self.tokenizer.eos_token_id, self.tokenizer.pad_token_id],
             pad_token_id=self.tokenizer.pad_token_id,
             return_dict_in_generate=True,
-            output_logits=True,
+            output_scores=True,
         )
 
         input_ids = outputs.sequences
         attention_mask = (input_ids != self.tokenizer.pad_token_id).long()
-        old_logits = torch.stack(outputs.logits, dim=1)
+        old_logits = torch.stack(outputs.scores, dim=1)
         rewards = self.reward_model(input_ids=input_ids, attention_mask=attention_mask)
         values = self.value_model(input_ids=input_ids, attention_mask=attention_mask)
 
@@ -239,6 +240,14 @@ class PPOTrainer:
         mask = attention_mask[:, prompt_length:]
 
         logits = self.policy_model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False).logits
+        # warp logits to the real distribution that responses were sampled from, according to temperature, top_p, etc.
+        logits_warper = self.policy_model._get_logits_warper(
+            GenerationConfig(
+                do_sample=self.config.temperature > 0, temperature=self.config.temperature, top_p=self.config.top_p
+            )
+        )
+        logits = logits_warper(input_ids, logits)
+
         logprobs = logprobs_from_logits(logits[:, prompt_length - 1 : -1], input_ids[:, prompt_length:])
 
         entropy = masked_mean(entropy_from_logits(logits[:, prompt_length - 1 : -1]), mask)
@@ -338,7 +347,7 @@ def main():
     # generation config
     parser.add_argument("--max_prompt_length", default=8, type=str)
     parser.add_argument("--max_length", default=16, type=str)
-    parser.add_argument("--temp", default=0.7, type=float)
+    parser.add_argument("--temperature", default=0.7, type=float)
     parser.add_argument("--top_p", default=1.0, type=float)
     # training config
     parser.add_argument("--seed", default=123, type=int)
@@ -349,7 +358,7 @@ def main():
     parser.add_argument("--train_ratio", default=0.99, type=float)
     parser.add_argument("--train_batch_size", default=256, type=int)
     parser.add_argument("--val_batch_size", default=256, type=int)
-    parser.add_argument("--num_train_epochs", default=5, type=int)
+    parser.add_argument("--num_train_epochs", default=8, type=int)
     parser.add_argument("--num_ppo_epochs", default=2, type=int)
     parser.add_argument("--mini_batch_size", default=128, type=int)
     parser.add_argument("--max_grad_norm", default=0.1, type=float)
